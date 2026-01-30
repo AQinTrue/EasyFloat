@@ -8,6 +8,7 @@ import android.os.Handler
 import android.os.Looper
 import com.lzf.easyfloat.interfaces.OnPermissionResult
 import com.lzf.easyfloat.utils.Logger
+import java.lang.ref.WeakReference
 
 /**
  * @author: liuzhenfeng
@@ -17,13 +18,15 @@ import com.lzf.easyfloat.utils.Logger
 internal class PermissionFragment : Fragment() {
 
     companion object {
-        private var onPermissionResult: OnPermissionResult? = null
+        private const val TAG = "EasyFloatPermissionFragment"
+        private var onPermissionResultRef: WeakReference<OnPermissionResult>? = null
 
         fun requestPermission(activity: Activity, onPermissionResult: OnPermissionResult) {
-            this.onPermissionResult = onPermissionResult
-            activity.fragmentManager
-                .beginTransaction()
-                .add(PermissionFragment(), activity.localClassName)
+            this.onPermissionResultRef = WeakReference(onPermissionResult)
+            val fm = activity.fragmentManager
+            if (fm.findFragmentByTag(TAG) != null) return
+            fm.beginTransaction()
+                .add(PermissionFragment(), TAG)
                 .commitAllowingStateLoss()
         }
     }
@@ -39,15 +42,23 @@ internal class PermissionFragment : Fragment() {
         if (requestCode == PermissionUtils.requestCode) {
             // 需要延迟执行，不然即使授权，仍有部分机型获取不到权限
             Handler(Looper.getMainLooper()).postDelayed({
+                if (!isAdded) return@postDelayed
                 val activity = activity ?: return@postDelayed
                 val check = PermissionUtils.checkPermission(activity)
                 Logger.i("PermissionFragment onActivityResult: $check")
                 // 回调权限结果
-                onPermissionResult?.permissionResult(check)
-                onPermissionResult = null
+                onPermissionResultRef?.get()?.permissionResult(check)
+                onPermissionResultRef = null
                 // 将Fragment移除
-                fragmentManager.beginTransaction().remove(this).commitAllowingStateLoss()
+                fragmentManager?.beginTransaction()?.remove(this)?.commitAllowingStateLoss()
             }, 500)
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (onPermissionResultRef?.get() != null) {
+            onPermissionResultRef = null
         }
     }
 

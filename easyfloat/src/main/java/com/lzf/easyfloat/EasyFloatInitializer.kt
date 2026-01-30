@@ -16,7 +16,9 @@ import com.lzf.easyfloat.utils.LifecycleUtils
 class EasyFloatInitializer : ContentProvider() {
 
     override fun onCreate(): Boolean {
-        LifecycleUtils.setLifecycleCallbacks(context!!.applicationContext as Application)
+        val appContext = context?.applicationContext
+        val app = appContext as? Application ?: return false
+        LifecycleUtils.setLifecycleCallbacks(app)
         return true
     }
 

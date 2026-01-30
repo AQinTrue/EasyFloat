@@ -107,7 +107,8 @@ object PermissionUtils {
         val clazz = Settings::class.java
         val field = clazz.getDeclaredField("ACTION_MANAGE_OVERLAY_PERMISSION")
         val intent = Intent(field.get(null).toString())
-        intent.data = Uri.parse("package:${fragment.activity.packageName}")
+        val activity = fragment.activity ?: return
+        intent.data = Uri.parse("package:${activity.packageName}")
         fragment.startActivityForResult(intent, requestCode)
     } catch (e: Exception) {
         Logger.e(TAG, "$e")

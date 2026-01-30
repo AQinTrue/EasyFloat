@@ -22,9 +22,10 @@ object RomUtils {
     @JvmStatic
     fun getEmuiVersion(): Double {
         try {
-            val emuiVersion = getSystemProperty("ro.build.version.emui")
-            val version = emuiVersion!!.substring(emuiVersion.indexOf("_") + 1)
-            return version.toDouble()
+            val emuiVersion = getSystemProperty("ro.build.version.emui") ?: return 4.0
+            val index = emuiVersion.indexOf("_")
+            if (index == -1 || index + 1 >= emuiVersion.length) return 4.0
+            return emuiVersion.substring(index + 1).toDouble()
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -62,7 +63,7 @@ object RomUtils {
     fun checkIsMeizuRom(): Boolean {
         val systemProperty = getSystemProperty("ro.build.display.id")
         return if (TextUtils.isEmpty(systemProperty)) false
-        else systemProperty!!.contains("flyme") || systemProperty.toLowerCase().contains("flyme")
+        else systemProperty!!.contains("flyme") || systemProperty.lowercase().contains("flyme")
     }
 
     fun checkIs360Rom(): Boolean =

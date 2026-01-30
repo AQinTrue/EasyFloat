@@ -153,7 +153,11 @@ internal class TouchUtils(val context: Context, val config: FloatConfig) {
                 // 重新设置坐标信息
                 params.x = x
                 params.y = y
-                windowManager.updateViewLayout(view, params)
+                try {
+                    windowManager.updateViewLayout(view, params)
+                } catch (_: Exception) {
+                    return
+                }
                 config.callbacks?.drag(view, event)
                 config.floatCallbacks?.builder?.drag?.invoke(view, event)
                 // 更新上次触摸点的数据

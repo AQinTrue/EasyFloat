@@ -9,6 +9,7 @@ import com.lzf.easyfloat.enums.SidePattern
 import com.lzf.easyfloat.interfaces.OnFloatAnimator
 import com.lzf.easyfloat.interfaces.OnTouchRangeListener
 import com.lzf.easyfloat.widget.BaseSwitchView
+import com.lzf.easyfloat.utils.Logger
 
 /**
  * @author: liuzhenfeng
@@ -55,7 +56,11 @@ object DragUtils {
             } else dismissAdd()
         } else {
             // 未提供侧滑监听，根据手指坐标信息，判断浮窗信息
-            screenWidth = DisplayUtils.getScreenWidth(LifecycleUtils.application)
+            val app = LifecycleUtils.getApplicationOrNull() ?: run {
+                Logger.w("DragUtils not initialized: EasyFloatInitializer not ready.")
+                return
+            }
+            screenWidth = DisplayUtils.getScreenWidth(app)
             offset = event.rawX / screenWidth
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> downX = event.rawX
@@ -93,7 +98,11 @@ object DragUtils {
 
     private fun showAdd(layoutId: Int) {
         if (EasyFloat.isShow(ADD_TAG)) return
-        EasyFloat.with(LifecycleUtils.application)
+        val app = LifecycleUtils.getApplicationOrNull() ?: run {
+            Logger.w("DragUtils not initialized: EasyFloatInitializer not ready.")
+            return
+        }
+        EasyFloat.with(app)
             .setLayout(layoutId)
             .setShowPattern(ShowPattern.CURRENT_ACTIVITY)
             .setTag(ADD_TAG)
@@ -149,7 +158,11 @@ object DragUtils {
         appFloatAnimator: OnFloatAnimator?
     ) {
         if (EasyFloat.isShow(CLOSE_TAG)) return
-        EasyFloat.with(LifecycleUtils.application)
+        val app = LifecycleUtils.getApplicationOrNull() ?: run {
+            Logger.w("DragUtils not initialized: EasyFloatInitializer not ready.")
+            return
+        }
+        EasyFloat.with(app)
             .setLayout(layoutId)
             .setShowPattern(showPattern)
             .setMatchParent(widthMatch = true)

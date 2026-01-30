@@ -28,12 +28,14 @@ class EasyFloat {
 
         /**
          * 通过上下文，创建浮窗的构建者信息，使浮窗拥有一些默认属性
-         * @param activity  上下文信息，优先使用Activity上下文，因为系统浮窗权限的自动申请，需要使用Activity信息
+         * @param context  上下文信息，内部会使用 applicationContext 避免泄露 Activity
          * @return  浮窗属性构建者
          */
         @JvmStatic
-        fun with(activity: Context): Builder = if (activity is Activity) Builder(activity)
-        else Builder(LifecycleUtils.getTopActivity() ?: activity)
+        fun with(context: Context): Builder {
+            val activity = context as? Activity ?: LifecycleUtils.getTopActivity()
+            return Builder(context.applicationContext, activity)
+        }
 
         /**
          * 关闭当前浮窗
@@ -173,7 +175,10 @@ class EasyFloat {
     /**
      * 浮窗的属性构建类，支持链式调用
      */
-    class Builder(private val activity: Context) : OnPermissionResult {
+    class Builder(
+        private val appContext: Context,
+        private val activity: Activity? = null
+    ) : OnPermissionResult {
 
         // 创建浮窗数据类，方便管理配置
         private val config = FloatConfig()
@@ -251,9 +256,9 @@ class EasyFloat {
         @JvmOverloads
         fun setBorder(
             left: Int = 0,
-            top: Int = -DisplayUtils.getStatusBarHeight(activity),
-            right: Int = DisplayUtils.getScreenWidth(activity),
-            bottom: Int = DisplayUtils.getScreenHeight(activity)
+            top: Int = -DisplayUtils.getStatusBarHeight(activity ?: appContext),
+            right: Int = DisplayUtils.getScreenWidth(activity ?: appContext),
+            bottom: Int = DisplayUtils.getScreenHeight(activity ?: appContext)
         ) = apply {
             config.leftBorder = left
             config.topBorder = top
@@ -332,9 +337,9 @@ class EasyFloat {
         fun setFilter(vararg clazz: Class<*>) = apply {
             clazz.forEach {
                 config.filterSet.add(it.name)
-                if (activity is Activity) {
-                    // 过滤掉当前Activity
-                    if (it.name == activity.componentName.className) config.filterSelf = true
+                // 过滤掉当前Activity
+                if (activity != null && it.name == activity.componentName.className) {
+                    config.filterSelf = true
                 }
             }
         }
@@ -349,7 +354,7 @@ class EasyFloat {
             // 仅当页显示，则直接创建activity浮窗
             config.showPattern == ShowPattern.CURRENT_ACTIVITY -> createFloat()
             // 系统浮窗需要先进行权限审核，有权限则创建app浮窗
-            PermissionUtils.checkPermission(activity) -> createFloat()
+            PermissionUtils.checkPermission(activity ?: appContext) -> createFloat()
             // 申请浮窗权限
             else -> requestPermission()
         }
@@ -357,13 +362,13 @@ class EasyFloat {
         /**
          * 通过浮窗管理类，统一创建浮窗
          */
-        private fun createFloat() = FloatingWindowManager.create(activity, config)
+        private fun createFloat() = FloatingWindowManager.create(appContext, activity, config)
 
         /**
          * 通过Fragment去申请系统悬浮窗权限
          */
         private fun requestPermission() =
-            if (activity is Activity) PermissionUtils.requestPermission(activity, this)
+            if (activity != null) PermissionUtils.requestPermission(activity, this)
             else callbackCreateFailed(WARN_CONTEXT_REQUEST)
 
         /**

@@ -21,9 +21,9 @@ internal object FloatingWindowManager {
      * 创建浮窗，tag不存在创建，tag存在创建失败
      * 创建结果通过tag添加到相应的map进行管理
      */
-    fun create(context: Context, config: FloatConfig) {
+    fun create(context: Context, activity: android.app.Activity?, config: FloatConfig) {
         if (!checkTag(config)) {
-            val helper = FloatingWindowHelper(context, config)
+            val helper = FloatingWindowHelper(context, activity, config)
             helper.createWindow(object : FloatingWindowHelper.CreateCallback {
                 override fun onCreate(success: Boolean) {
                     if (success) windowMap[config.floatTag!!] = helper
@@ -54,7 +54,7 @@ internal object FloatingWindowManager {
     fun visible(
         isShow: Boolean,
         tag: String? = null,
-        needShow: Boolean = windowMap[tag]?.config?.needShow ?: true
+        needShow: Boolean = windowMap[getTag(tag)]?.config?.needShow ?: true
     ) = getHelper(tag)?.setVisible(if (isShow) View.VISIBLE else View.GONE, needShow)
 
     /**

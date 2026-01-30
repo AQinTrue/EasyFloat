@@ -20,6 +20,9 @@ internal object LifecycleUtils {
 
     fun getTopActivity(): Activity? = mTopActivity?.get()
 
+    fun getApplicationOrNull(): Application? =
+        if (::application.isInitialized) application else null
+
     fun setLifecycleCallbacks(application: Application) {
         this.application = application
         application.registerActivityLifecycleCallbacks(object :

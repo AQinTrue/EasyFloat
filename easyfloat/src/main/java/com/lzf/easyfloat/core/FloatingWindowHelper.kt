@@ -22,13 +22,19 @@ import com.lzf.easyfloat.utils.InputMethodUtils
 import com.lzf.easyfloat.utils.LifecycleUtils
 import com.lzf.easyfloat.utils.Logger
 import com.lzf.easyfloat.widget.ParentFrameLayout
+import java.lang.ref.WeakReference
 
 /**
  * @author: Liuzhenfeng
  * @date: 12/1/20  23:40
  * @Description: 负责具体悬浮窗的创建管理
  */
-internal class FloatingWindowHelper(val context: Context, var config: FloatConfig) {
+internal class FloatingWindowHelper(
+    private val appContext: Context,
+    activity: Activity?,
+    var config: FloatConfig
+) {
+    private val activityRef = WeakReference(activity)
 
     interface CreateCallback {
         fun onCreate(success: Boolean)
@@ -39,6 +45,7 @@ internal class FloatingWindowHelper(val context: Context, var config: FloatConfi
     var frameLayout: ParentFrameLayout? = null
     private lateinit var touchUtils: TouchUtils
     private var enterAnimator: Animator? = null
+    private var isRemoved = false
     private var lastLayoutMeasureWidth = -1
     private var lastLayoutMeasureHeight = -1
 
@@ -56,7 +63,7 @@ internal class FloatingWindowHelper(val context: Context, var config: FloatConfi
     }
 
     private fun createWindowInner(): Boolean = try {
-        touchUtils = TouchUtils(context, config)
+        touchUtils = TouchUtils(appContext, config)
         initParams()
         addView()
         config.isShow = true
@@ -68,13 +75,14 @@ internal class FloatingWindowHelper(val context: Context, var config: FloatConfi
     }
 
     private fun initParams() {
-        windowManager = context.getSystemService(Service.WINDOW_SERVICE) as WindowManager
+        windowManager = appContext.getSystemService(Service.WINDOW_SERVICE) as WindowManager
         params = WindowManager.LayoutParams().apply {
             if (config.showPattern == ShowPattern.CURRENT_ACTIVITY) {
                 // 设置窗口类型为应用子窗口，和PopupWindow同类型
                 type = TYPE_APPLICATION_PANEL
                 // 子窗口必须和创建它的Activity的windowToken绑定
                 token = getToken()
+                if (token == null) throw Exception(WARN_ACTIVITY_NULL)
             } else {
                 // 系统全局窗口，可覆盖在任何应用之上，以及单独显示在桌面上
                 // 安卓6.0 以后，全局的Window类别，必须使用TYPE_APPLICATION_OVERLAY
@@ -92,7 +100,7 @@ internal class FloatingWindowHelper(val context: Context, var config: FloatConfi
             height = if (config.heightMatch) MATCH_PARENT else WRAP_CONTENT
 
             if (config.immersionStatusBar && config.heightMatch) {
-                height = DisplayUtils.getScreenHeight(context)
+                height = DisplayUtils.getScreenHeight(appContext)
             }
 
             // 如若设置了固定坐标，直接定位
@@ -103,8 +111,7 @@ internal class FloatingWindowHelper(val context: Context, var config: FloatConfi
         }
     }
 
-    private fun getActivity() =
-        if (context is Activity) context else LifecycleUtils.getTopActivity()
+    private fun getActivity() = activityRef.get() ?: LifecycleUtils.getTopActivity()
 
     private fun getToken(): IBinder? = getActivity()?.window?.decorView?.windowToken
 
@@ -114,13 +121,16 @@ internal class FloatingWindowHelper(val context: Context, var config: FloatConfi
      */
     private fun addView() {
         //浮窗父布局ParentFrameLayout与子view的context保持一致
-        val rootViewContext = config.layoutView?.run { context } ?: context
+        val rootViewContext = config.layoutView?.run { context } ?: (getActivity() ?: appContext)
         // 创建一个frameLayout作为浮窗布局的父容器
         frameLayout = ParentFrameLayout(rootViewContext, config)
         frameLayout?.tag = config.floatTag
         // 将浮窗布局文件添加到父容器frameLayout中，并返回该浮窗文件
-        val floatingView = config.layoutView?.also { frameLayout?.addView(it) }
-            ?: LayoutInflater.from(context).inflate(config.layoutId!!, frameLayout, true)
+        val floatingView = config.layoutView?.also { view ->
+            (view.parent as? ViewGroup)?.removeView(view)
+            frameLayout?.addView(view)
+        }
+            ?: LayoutInflater.from(rootViewContext).inflate(config.layoutId!!, frameLayout, true)
         // 为了避免创建的时候闪一下，我们先隐藏视图，不能直接设置GONE，否则定位会出现问题
         floatingView.visibility = View.INVISIBLE
         // 将frameLayout添加到系统windowManager中
@@ -208,7 +218,10 @@ internal class FloatingWindowHelper(val context: Context, var config: FloatConfi
                 lastLayoutMeasureHeight = this.measuredHeight
 
                 // 更新浮窗位置信息
-                windowManager.updateViewLayout(frameLayout, params)
+                try {
+                    windowManager.updateViewLayout(frameLayout, params)
+                } catch (_: Exception) {
+                }
             }
         }
     }
@@ -248,7 +261,7 @@ internal class FloatingWindowHelper(val context: Context, var config: FloatConfi
         // 通过绝对高度和相对高度比较，判断包含顶部状态栏
         val statusBarHeight = if (location[1] > params.y) DisplayUtils.statusBarHeight(view) else 0
         val parentBottom =
-            config.displayHeight.getDisplayRealHeight(context) - statusBarHeight
+            config.displayHeight.getDisplayRealHeight(appContext) - statusBarHeight
         when (config.gravity) {
             // 右上
             Gravity.END, Gravity.END or Gravity.TOP, Gravity.RIGHT, Gravity.RIGHT or Gravity.TOP ->
@@ -301,7 +314,10 @@ internal class FloatingWindowHelper(val context: Context, var config: FloatConfi
             }
         }
         // 更新浮窗位置信息
-        windowManager.updateViewLayout(view, params)
+        try {
+            windowManager.updateViewLayout(view, params)
+        } catch (_: Exception) {
+        }
     }
 
     /**
@@ -366,7 +382,7 @@ internal class FloatingWindowHelper(val context: Context, var config: FloatConfi
      * 退出动画
      */
     fun exitAnim() {
-        if (frameLayout == null || (config.isAnim && enterAnimator == null)) return
+        if (isRemoved || frameLayout == null || (config.isAnim && enterAnimator == null)) return
         enterAnimator?.cancel()
         val animator: Animator? =
             AnimatorManager(frameLayout!!, params, windowManager, config).exitAnim()
@@ -392,10 +408,23 @@ internal class FloatingWindowHelper(val context: Context, var config: FloatConfi
      * 退出动画执行结束/没有退出动画，进行回调、移除等操作
      */
     fun remove(force: Boolean = false) = try {
+        if (isRemoved) return
+        isRemoved = true
         config.isAnim = false
         FloatingWindowManager.remove(config.floatTag)
         // removeView是异步删除，在Activity销毁的时候会导致窗口泄漏，所以使用removeViewImmediate直接删除view
-        windowManager.run { if (force) removeViewImmediate(frameLayout) else removeView(frameLayout) }
+        val view = frameLayout
+        frameLayout = null
+        enterAnimator?.cancel()
+        enterAnimator = null
+        if (view != null) {
+            windowManager.run { if (force) removeViewImmediate(view) else removeView(view) }
+        }
+        // 释放引用，避免泄露
+        config.layoutView = null
+        config.invokeView = null
+        config.callbacks = null
+        config.floatCallbacks = null
     } catch (e: Exception) {
         Logger.e("浮窗关闭出现异常：$e")
     }
