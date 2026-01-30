@@ -1,0 +1,49 @@
+name: Build classes.dex
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+
+jobs:
+  build-dex:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK packages
+        run: |
+          sdkmanager "platforms;android-29" "build-tools;30.0.3"
+
+      - name: Build AAR
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :easyfloat:assembleRelease
+
+      - name: Convert to classes.dex
+        run: |
+          AAR="easyfloat/build/outputs/aar/easyfloat-release.aar"
+          OUT_DIR="easyfloat/build/outputs/dex"
+          TMP_DIR="easyfloat/build/tmp/aar-unzip"
+          rm -rf "$TMP_DIR" "$OUT_DIR"
+          mkdir -p "$TMP_DIR" "$OUT_DIR"
+          unzip -q "$AAR" -d "$TMP_DIR"
+          "$ANDROID_SDK_ROOT/build-tools/30.0.3/d8" --output "$OUT_DIR" "$TMP_DIR/classes.jar"
+
+      - name: Upload classes.dex
+        uses: actions/upload-artifact@v4
+        with:
+          name: classes-dex
+          path: easyfloat/build/outputs/dex/classes.dex
