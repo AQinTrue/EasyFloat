@@ -410,35 +410,37 @@ internal class FloatingWindowHelper(
     /**
      * 退出动画执行结束/没有退出动画，进行回调、移除等操作
      */
-    fun remove(force: Boolean = false) = try {
-        if (isRemoved) return
-        isRemoved = true
-        config.isAnim = false
-        FloatingWindowManager.remove(config.floatTag)
-        // removeView是异步删除，在Activity销毁的时候会导致窗口泄漏，所以使用removeViewImmediate直接删除view
-        val view = frameLayout
-        frameLayout = null
-        enterAnimator?.cancel()
-        enterAnimator = null
-        globalLayoutListener?.let { listener ->
-            try {
-                view?.viewTreeObserver?.let { vto ->
-                    if (vto.isAlive) vto.removeOnGlobalLayoutListener(listener)
+    fun remove(force: Boolean = false) {
+        try {
+            if (isRemoved) return
+            isRemoved = true
+            config.isAnim = false
+            FloatingWindowManager.remove(config.floatTag)
+            // removeView是异步删除，在Activity销毁的时候会导致窗口泄漏，所以使用removeViewImmediate直接删除view
+            val view = frameLayout
+            frameLayout = null
+            enterAnimator?.cancel()
+            enterAnimator = null
+            globalLayoutListener?.let { listener ->
+                try {
+                    view?.viewTreeObserver?.let { vto ->
+                        if (vto.isAlive) vto.removeOnGlobalLayoutListener(listener)
+                    }
+                } catch (_: Exception) {
                 }
-            } catch (_: Exception) {
             }
+            globalLayoutListener = null
+            if (view != null) {
+                windowManager.run { if (force) removeViewImmediate(view) else removeView(view) }
+            }
+            // 释放引用，避免泄露
+            config.layoutView = null
+            config.invokeView = null
+            config.callbacks = null
+            config.floatCallbacks = null
+        } catch (e: Exception) {
+            Logger.e("浮窗关闭出现异常：$e")
         }
-        globalLayoutListener = null
-        if (view != null) {
-            windowManager.run { if (force) removeViewImmediate(view) else removeView(view) }
-        }
-        // 释放引用，避免泄露
-        config.layoutView = null
-        config.invokeView = null
-        config.callbacks = null
-        config.floatCallbacks = null
-    } catch (e: Exception) {
-        Logger.e("浮窗关闭出现异常：$e")
     }
 
     /**
