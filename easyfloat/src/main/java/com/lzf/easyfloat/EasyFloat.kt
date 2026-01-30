@@ -240,6 +240,29 @@ class EasyFloat {
         }
 
         /**
+         * 设置拖拽触发阈值（像素）
+         * @param touchSlop 触发拖拽的最小滑动距离
+         */
+        fun setTouchSlop(touchSlop: Int) = apply { config.touchSlop = touchSlop }
+
+        /**
+         * 设置吸附动画时长
+         * @param durationMs 动画时长（毫秒）
+         */
+        fun setSideAnimDuration(durationMs: Long) = apply { config.sideAnimDuration = durationMs }
+
+        /**
+         * 设置吸附动画插值器
+         */
+        fun setSideAnimInterpolator(interpolator: android.animation.TimeInterpolator?) =
+            apply { config.sideAnimInterpolator = interpolator }
+
+        /**
+         * 设置边缘阻尼比例（0~1），越小阻尼越强
+         */
+        fun setEdgeDampingRatio(ratio: Float) = apply { config.edgeDampingRatio = ratio }
+
+        /**
          * 设置浮窗的起始坐标，优先级高于setGravity
          * @param x     起始水平坐标
          * @param y     起始竖直坐标

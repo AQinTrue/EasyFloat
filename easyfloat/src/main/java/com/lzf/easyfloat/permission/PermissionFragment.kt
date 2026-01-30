@@ -21,6 +21,11 @@ internal class PermissionFragment : Fragment() {
         private const val TAG = "EasyFloatPermissionFragment"
         private var onPermissionResultRef: WeakReference<OnPermissionResult>? = null
 
+        internal fun dispatchResult(isOpen: Boolean) {
+            onPermissionResultRef?.get()?.permissionResult(isOpen)
+            onPermissionResultRef = null
+        }
+
         fun requestPermission(activity: Activity, onPermissionResult: OnPermissionResult) {
             this.onPermissionResultRef = WeakReference(onPermissionResult)
             val fm = activity.fragmentManager
@@ -47,8 +52,7 @@ internal class PermissionFragment : Fragment() {
                 val check = PermissionUtils.checkPermission(activity)
                 Logger.i("PermissionFragment onActivityResult: $check")
                 // 回调权限结果
-                onPermissionResultRef?.get()?.permissionResult(check)
-                onPermissionResultRef = null
+                dispatchResult(check)
                 // 将Fragment移除
                 fragmentManager?.beginTransaction()?.remove(this)?.commitAllowingStateLoss()
             }, 500)

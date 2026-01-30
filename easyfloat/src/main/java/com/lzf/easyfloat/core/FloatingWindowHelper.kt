@@ -46,6 +46,7 @@ internal class FloatingWindowHelper(
     private lateinit var touchUtils: TouchUtils
     private var enterAnimator: Animator? = null
     private var isRemoved = false
+    private var globalLayoutListener: ViewTreeObserver.OnGlobalLayoutListener? = null
     private var lastLayoutMeasureWidth = -1
     private var lastLayoutMeasureHeight = -1
 
@@ -176,12 +177,12 @@ internal class FloatingWindowHelper(
     private fun setChangedListener() {
         frameLayout?.apply {
             // 监听frameLayout布局完成
-            viewTreeObserver?.addOnGlobalLayoutListener {
+            val listener = ViewTreeObserver.OnGlobalLayoutListener {
                 val filterInvalidVal = lastLayoutMeasureWidth == -1 || lastLayoutMeasureHeight == -1
                 val filterEqualVal =
                     lastLayoutMeasureWidth == this.measuredWidth && lastLayoutMeasureHeight == this.measuredHeight
                 if (filterInvalidVal || filterEqualVal) {
-                    return@addOnGlobalLayoutListener
+                    return@OnGlobalLayoutListener
                 }
 
                 // 水平方向
@@ -223,6 +224,8 @@ internal class FloatingWindowHelper(
                 } catch (_: Exception) {
                 }
             }
+            globalLayoutListener = listener
+            viewTreeObserver?.addOnGlobalLayoutListener(listener)
         }
     }
 
@@ -417,6 +420,15 @@ internal class FloatingWindowHelper(
         frameLayout = null
         enterAnimator?.cancel()
         enterAnimator = null
+        globalLayoutListener?.let { listener ->
+            try {
+                view?.viewTreeObserver?.let { vto ->
+                    if (vto.isAlive) vto.removeOnGlobalLayoutListener(listener)
+                }
+            } catch (_: Exception) {
+            }
+        }
+        globalLayoutListener = null
         if (view != null) {
             windowManager.run { if (force) removeViewImmediate(view) else removeView(view) }
         }

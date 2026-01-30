@@ -8,6 +8,8 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.view.WindowManager.LayoutParams
+import android.view.ViewConfiguration
+import android.view.animation.DecelerateInterpolator
 import com.lzf.easyfloat.data.FloatConfig
 import com.lzf.easyfloat.enums.ShowPattern
 import com.lzf.easyfloat.enums.SidePattern
@@ -53,10 +55,23 @@ internal class TouchUtils(val context: Context, val config: FloatConfig) {
 
     // 屏幕可用高度 - 浮窗自身高度 的剩余高度
     private var emptyHeight = 0
+    private val touchSlopSq: Int
+    private val dampingRatio: Float
 
     /**
      * 根据吸附模式，实现相应的拖拽效果
      */
+    init {
+        val slop = if (config.touchSlop > 0) config.touchSlop
+        else ViewConfiguration.get(context).scaledTouchSlop
+        touchSlopSq = slop * slop
+        dampingRatio = when {
+            config.edgeDampingRatio < 0f -> 0f
+            config.edgeDampingRatio > 1f -> 1f
+            else -> config.edgeDampingRatio
+        }
+    }
+
     fun updateFloat(
         view: View,
         event: MotionEvent,
@@ -91,7 +106,7 @@ internal class TouchUtils(val context: Context, val config: FloatConfig) {
                 val dx = event.rawX - lastX
                 val dy = event.rawY - lastY
                 // 忽略过小的移动，防止点击无效
-                if (!config.isDrag && dx * dx + dy * dy < 81) return
+                if (!config.isDrag && dx * dx + dy * dy < touchSlopSq) return
                 config.isDrag = true
 
                 var x = params.x + dx.toInt()
@@ -148,6 +163,18 @@ internal class TouchUtils(val context: Context, val config: FloatConfig) {
                     }
                     else -> {
                     }
+                }
+
+                // 边缘阻尼：靠近边缘时减缓移动
+                if (dampingRatio < 1f) {
+                    if ((x <= leftBorder && dx < 0) || (x >= rightBorder && dx > 0)) {
+                        x = params.x + (dx * dampingRatio).toInt()
+                    }
+                    if ((y <= topBorder && dy < 0) || (y >= bottomBorder && dy > 0)) {
+                        y = params.y + (dy * dampingRatio).toInt()
+                    }
+                    x = x.coerceIn(leftBorder, rightBorder)
+                    y = y.coerceIn(topBorder, bottomBorder)
                 }
 
                 // 重新设置坐标信息
@@ -287,6 +314,8 @@ internal class TouchUtils(val context: Context, val config: FloatConfig) {
         }
 
         val animator = ValueAnimator.ofInt(if (isX) params.x else params.y, end)
+        animator.duration = config.sideAnimDuration
+        animator.interpolator = config.sideAnimInterpolator ?: DecelerateInterpolator()
         animator.addUpdateListener {
             try {
                 if (isX) params.x = it.animatedValue as Int else params.y = it.animatedValue as Int

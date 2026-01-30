@@ -79,5 +79,17 @@ data class FloatConfig(
     internal var needShow: Boolean = true,
 
     // 当layout大小变化后，整体view的位置的摆放
-    var layoutChangedGravity: Int = Gravity.TOP.or(Gravity.START)
+    var layoutChangedGravity: Int = Gravity.TOP.or(Gravity.START),
+
+    // 拖拽触发阈值，默认使用系统 touchSlop
+    var touchSlop: Int = -1,
+
+    // 吸附动画时长
+    var sideAnimDuration: Long = 200L,
+
+    // 吸附动画插值器
+    var sideAnimInterpolator: android.animation.TimeInterpolator? = null,
+
+    // 边缘阻尼的拖拽比例（0~1），越小阻尼越强
+    var edgeDampingRatio: Float = 0.6f
 )

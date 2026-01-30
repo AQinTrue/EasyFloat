@@ -107,7 +107,12 @@ object PermissionUtils {
         val clazz = Settings::class.java
         val field = clazz.getDeclaredField("ACTION_MANAGE_OVERLAY_PERMISSION")
         val intent = Intent(field.get(null).toString())
-        val activity = fragment.activity ?: return
+        val activity = fragment.activity ?: run {
+            if (fragment is PermissionFragment) {
+                PermissionFragment.dispatchResult(false)
+            }
+            return
+        }
         intent.data = Uri.parse("package:${activity.packageName}")
         fragment.startActivityForResult(intent, requestCode)
     } catch (e: Exception) {
