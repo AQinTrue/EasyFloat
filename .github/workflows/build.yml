@@ -13,11 +13,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK 8
+      - name: Set up JDK 17 (for sdkmanager)
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "8"
+          java-version: "17"
           cache: gradle
 
       - name: Set up Android SDK
@@ -26,6 +26,13 @@ jobs:
       - name: Install SDK packages
         run: |
           sdkmanager "platforms;android-29" "build-tools;30.0.3"
+
+      - name: Set up JDK 8 (for Gradle build)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "8"
+          cache: gradle
 
       - name: Build AAR
         run: |
