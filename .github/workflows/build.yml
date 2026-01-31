@@ -47,7 +47,9 @@ jobs:
           rm -rf "$TMP_DIR" "$OUT_DIR"
           mkdir -p "$TMP_DIR" "$OUT_DIR"
           unzip -q "$AAR" -d "$TMP_DIR"
-          "$ANDROID_SDK_ROOT/build-tools/30.0.3/d8" --output "$OUT_DIR" "$TMP_DIR/classes.jar"
+          KOTLIN_JAR="$HOME/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/1.5.31"
+          KOTLIN_LIB=$(find "$KOTLIN_JAR" -name "kotlin-stdlib-1.5.31.jar" | head -n 1)
+          "$ANDROID_SDK_ROOT/build-tools/30.0.3/d8" --output "$OUT_DIR" "$TMP_DIR/classes.jar" "$KOTLIN_LIB"
 
       - name: Upload classes.dex
         uses: actions/upload-artifact@v4
